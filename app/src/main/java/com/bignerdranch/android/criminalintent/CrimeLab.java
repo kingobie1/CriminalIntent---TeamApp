@@ -86,6 +86,26 @@ public class CrimeLab {
         return new File(externalFilesDir, crime.getPhotoFilename());
     }
 
+    public File[] getPhotoFiles(Crime crime) {
+        File externalFilesDir = mContext
+                .getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        if (externalFilesDir == null) {
+            return null;
+        }
+
+        String[] photoFileNames = crime.getPhotoFilenames();
+        int numberOfPossiblePhotos = photoFileNames.length;
+        File[] photoFiles = new File[numberOfPossiblePhotos];
+
+        for (int i = 0; i < numberOfPossiblePhotos; i++) {
+            photoFiles[i] = new File(externalFilesDir, crime.getPhotoFilename());
+        }
+
+        return photoFiles;
+    }
+
+
     public void updateCrime(Crime crime) {
         String uuidString = crime.getId().toString();
         ContentValues values = getContentValues(crime);

@@ -10,6 +10,7 @@ public class Crime {
     private Date mDate;
     private boolean mSolved;
     private String mSuspect;
+    private static final int MAXPHOTOS = 4;
 
     public Crime() {
         this(UUID.randomUUID());
@@ -58,5 +59,15 @@ public class Crime {
 
     public String getPhotoFilename() {
         return "IMG_" + getId().toString() + ".jpg";
+    }
+
+    public String[] getPhotoFilenames() {
+        String[] photoFilenames = new String[MAXPHOTOS];
+
+        for (int n = 0; n < MAXPHOTOS; n++) {
+            photoFilenames[n] = "IMG_" + getId().toString() + "_" + n + ".jpg";
+        }
+
+        return photoFilenames;
     }
 }
