@@ -98,9 +98,8 @@ public class CrimeLab {
         int numberOfPossiblePhotos = photoFileNames.length;
         File[] photoFiles = new File[numberOfPossiblePhotos];
 
-        for (int i = 0; i < numberOfPossiblePhotos; i++) {
-            photoFiles[i] = new File(externalFilesDir, crime.getPhotoFilename());
-        }
+        for (int i = 0; i < numberOfPossiblePhotos; i++)
+            photoFiles[i] = new File(externalFilesDir, photoFileNames[i]);
 
         return photoFiles;
     }

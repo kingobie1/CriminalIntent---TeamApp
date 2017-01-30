@@ -6,6 +6,9 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -39,6 +42,7 @@ public class CrimeFragment extends Fragment {
     private static final int REQUEST_CONTACT = 1;
     private static final int REQUEST_PHOTO= 2;
 
+    private int imageCount = 0;
     private Crime mCrime;
     private File mPhotoFile;
     private File[] mPhotoFiles;
@@ -48,6 +52,7 @@ public class CrimeFragment extends Fragment {
     private Button mReportButton;
     private Button mSuspectButton;
     private ImageButton mPhotoButton;
+    private ImageView[] mPhotoViews = new ImageView[4];
     private ImageView mPhotoView;
 
     public static CrimeFragment newInstance(UUID crimeId) {
@@ -71,6 +76,7 @@ public class CrimeFragment extends Fragment {
 
     @Override
     public void onPause() {
+        super.onPause();
         super.onPause();
 
         CrimeLab.get(getActivity())
@@ -159,24 +165,46 @@ public class CrimeFragment extends Fragment {
         mPhotoButton = (ImageButton) v.findViewById(R.id.crime_camera);
         final Intent captureImage = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
-        boolean canTakePhoto = mPhotoFile != null &&
-                captureImage.resolveActivity(packageManager) != null;
+        boolean canTakePhoto = mPhotoFiles != null && captureImage.resolveActivity(packageManager) != null;
         mPhotoButton.setEnabled(canTakePhoto);
 
         if (canTakePhoto) {
-            Uri uri = Uri.fromFile(mPhotoFile);
-            captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+
         }
 
         mPhotoButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Uri uri = null;
+
+//                if (isPhotoEmpty(mPhotoFiles[0])) {
+//                    uri = Uri.fromFile(mPhotoFiles[0]);
+//                } else if (isPhotoEmpty(mPhotoFiles[1])) {
+//                    uri = Uri.fromFile(mPhotoFiles[1]);
+//                } else if (isPhotoEmpty(mPhotoFiles[2])) {
+//                    uri = Uri.fromFile(mPhotoFiles[2]);
+//                } else {
+//                    uri = Uri.fromFile(mPhotoFiles[3]);
+//                }
+
+                if (imageCount > 3) {
+                    imageCount = 0;
+                }
+
+                uri = Uri.fromFile(mPhotoFiles[imageCount]);
+                captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
                 startActivityForResult(captureImage, REQUEST_PHOTO);
+                imageCount += 1;
             }
         });
 
-        mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
+//        mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
+        mPhotoViews[0] = (ImageView) v.findViewById(R.id.crime_photo);
+        mPhotoViews[1] = (ImageView) v.findViewById(R.id.crime_photo_1);
+        mPhotoViews[2] = (ImageView) v.findViewById(R.id.crime_photo_2);
+        mPhotoViews[3] = (ImageView) v.findViewById(R.id.crime_photo_3);
         updatePhotoView();
+        startImageCount();
 
         return v;
     }
@@ -245,18 +273,55 @@ public class CrimeFragment extends Fragment {
         } else {
             suspect = getString(R.string.crime_report_suspect, suspect);
         }
-        String report = getString(R.string.crime_report,
-                mCrime.getTitle(), dateString, solvedString, suspect);
+        String report = getString(R.string.crime_report, mCrime.getTitle(), dateString, solvedString, suspect);
         return report;
     }
 
     private void updatePhotoView() {
-        if (mPhotoFile == null || !mPhotoFile.exists()) {
-            mPhotoView.setImageDrawable(null);
-        } else {
-            Bitmap bitmap = PictureUtils.getScaledBitmap(
-                    mPhotoFile.getPath(), getActivity());
-            mPhotoView.setImageBitmap(bitmap);
+        for (int i = 0; i < 4; i++) {
+            if (mPhotoFiles[i] == null || !mPhotoFiles[i].exists()) {
+                mPhotoViews[i].setImageDrawable(null);
+            } else {
+                Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFiles[i].getPath(), getActivity());
+//                Bitmap bitmap = BitmapFactory.decodeFile(mPhotoFiles[i].getPath());
+//                ((BitmapDrawable)mPhotoViews[i].getDrawable()).getBitmap().recycle();
+                mPhotoViews[i].setImageBitmap(bitmap);
+            }
+        }
+    }
+
+    private void startImageCount() {
+        for (File f : mPhotoFiles) {
+            if (f != null && f.exists()) {
+                imageCount += 1;
+            }
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        for (ImageView iv : mPhotoViews) {
+            unbindDrawables(iv);
+            iv.setImageDrawable(null);
+        }
+
+        System.gc();
+    }
+
+    private boolean isPhotoEmpty(File file) {
+        return file == null || !file.exists();
+    }
+
+    private void unbindDrawables(View view) {
+        if (view.getBackground() != null) {
+            view.getBackground().setCallback(null);
+        }
+        if (view instanceof ViewGroup) {
+            for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) {
+                unbindDrawables(((ViewGroup) view).getChildAt(i));
+            }
+            ((ViewGroup) view).removeAllViews();
         }
     }
 }
