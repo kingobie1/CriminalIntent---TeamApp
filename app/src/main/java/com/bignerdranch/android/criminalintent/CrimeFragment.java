@@ -44,7 +44,6 @@ public class CrimeFragment extends Fragment {
 
     private int imageCount = 0;
     private Crime mCrime;
-    private File mPhotoFile;
     private File[] mPhotoFiles;
     private EditText mTitleField;
     private Button mDateButton;
@@ -53,7 +52,6 @@ public class CrimeFragment extends Fragment {
     private Button mSuspectButton;
     private ImageButton mPhotoButton;
     private ImageView[] mPhotoViews = new ImageView[4];
-    private ImageView mPhotoView;
 
     public static CrimeFragment newInstance(UUID crimeId) {
         Bundle args = new Bundle();
@@ -70,7 +68,6 @@ public class CrimeFragment extends Fragment {
         UUID crimeId = (UUID) getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getActivity()).getCrime(crimeId);
 
-        mPhotoFile = CrimeLab.get(getActivity()).getPhotoFile(mCrime);
         mPhotoFiles = CrimeLab.get(getActivity()).getPhotoFiles(mCrime);
     }
 

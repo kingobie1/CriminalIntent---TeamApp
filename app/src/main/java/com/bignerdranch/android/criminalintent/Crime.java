@@ -57,10 +57,6 @@ public class Crime {
         mSuspect = suspect;
     }
 
-    public String getPhotoFilename() {
-        return "IMG_" + getId().toString() + ".jpg";
-    }
-
     public String[] getPhotoFilenames() {
         String[] photoFilenames = new String[MAXPHOTOS];
 
