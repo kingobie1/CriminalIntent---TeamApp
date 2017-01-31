@@ -7,8 +7,13 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.ColorDrawable;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -19,6 +24,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
 import android.util.DisplayMetrics;
+import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +35,13 @@ import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.vision.Frame;
+import com.google.android.gms.vision.face.Face;
+import com.google.android.gms.vision.face.FaceDetector;
+
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -37,10 +50,14 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.UUID;
 
-public class CrimeFragment extends Fragment {
+public class CrimeFragment extends Fragment implements View.OnClickListener {
 
     private static final String ARG_CRIME_ID = "crime_id";
     private static final String DIALOG_DATE = "DialogDate";
+
+    private CheckBox detectFacesCheckBox;
+    private TextView faceDetectedText;
+
 
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
@@ -85,8 +102,7 @@ public class CrimeFragment extends Fragment {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_crime, container, false);
 
         mTitleField = (EditText) v.findViewById(R.id.crime_title);
@@ -163,6 +179,10 @@ public class CrimeFragment extends Fragment {
             mSuspectButton.setEnabled(false);
         }
 
+        faceDetectedText = (TextView) v.findViewById(R.id.facesDetected_Text);
+        detectFacesCheckBox = (CheckBox) v.findViewById(R.id.detectFacesCheckBox);
+        detectFacesCheckBox.setOnClickListener(this);
+
         mPhotoButton = (ImageButton) v.findViewById(R.id.crime_camera);
         final Intent captureImage = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
@@ -178,16 +198,6 @@ public class CrimeFragment extends Fragment {
             public void onClick(View v) {
                 Uri uri = null;
 
-//                if (isPhotoEmpty(mPhotoFiles[0])) {
-//                    uri = Uri.fromFile(mPhotoFiles[0]);
-//                } else if (isPhotoEmpty(mPhotoFiles[1])) {
-//                    uri = Uri.fromFile(mPhotoFiles[1]);
-//                } else if (isPhotoEmpty(mPhotoFiles[2])) {
-//                    uri = Uri.fromFile(mPhotoFiles[2]);
-//                } else {
-//                    uri = Uri.fromFile(mPhotoFiles[3]);
-//                }
-
                 if (imageCount > 3) {
                     imageCount = 0;
                 }
@@ -198,7 +208,6 @@ public class CrimeFragment extends Fragment {
             }
         });
 
-//        mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
         mPhotoViews[0] = (ImageView) v.findViewById(R.id.crime_photo);
         mPhotoViews[1] = (ImageView) v.findViewById(R.id.crime_photo_1);
         mPhotoViews[2] = (ImageView) v.findViewById(R.id.crime_photo_2);
@@ -222,11 +231,13 @@ public class CrimeFragment extends Fragment {
             updateDate();
         } else if (requestCode == REQUEST_CONTACT && data != null) {
             Uri contactUri = data.getData();
+
             // Specify which fields you want your query to return
             // values for.
             String[] queryFields = new String[] {
                     ContactsContract.Contacts.DISPLAY_NAME,
             };
+
             // Perform your query - the contactUri is like a "where"
             // clause here
             ContentResolver resolver = getActivity().getContentResolver();
@@ -283,30 +294,87 @@ public class CrimeFragment extends Fragment {
             if (mPhotoFiles[i] == null || !mPhotoFiles[i].exists()) {
                 mPhotoViews[i].setImageDrawable(null);
             } else {
-                // Update Photo View With images of a lower quality to save ram
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                BitmapFactory.Options options = new BitmapFactory.Options();
 
-                options.inDensity = DisplayMetrics.DENSITY_DEFAULT;
-                options.inTargetDensity = DisplayMetrics.DENSITY_DEFAULT;
-                options.inScreenDensity = DisplayMetrics.DENSITY_DEFAULT;
-                options.inSampleSize = 2;
-                options.inScaled = false;
-                options.inPreferredConfig = Bitmap.Config.RGB_565;
-                Bitmap bitmap = new BitmapFactory().decodeFile(mPhotoFiles[i].getPath(), options);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 60, byteArrayOutputStream);
+                Bitmap bitmap = getLowQualityBitmapFromFile(mPhotoFiles[i]);
 
-                try {
-                    byteArrayOutputStream.flush();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                bitmap = BitmapFactory.decodeStream(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
+                bitmap = adjustBitmapToCorrectOrientation(mPhotoFiles[i].getPath(), bitmap);
 
                 mPhotoViews[i].setImageBitmap(bitmap);
+
+                detectFaces();
             }
         }
+    }
+
+    private Bitmap getLowQualityBitmapFromFile(File file) {
+        // Update Photo View With images of a lower quality to save ram
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        BitmapFactory.Options options = new BitmapFactory.Options();
+
+        // Set extra perameters about requested bitmap
+        options.inDensity = DisplayMetrics.DENSITY_DEFAULT;
+        options.inTargetDensity = DisplayMetrics.DENSITY_DEFAULT;
+        options.inScreenDensity = DisplayMetrics.DENSITY_DEFAULT;
+        options.inSampleSize = 2;
+        options.inScaled = false;
+        options.inMutable=true;
+        options.inPreferredConfig = Bitmap.Config.RGB_565;
+
+        Bitmap bitmap = new BitmapFactory().decodeFile(file.getPath(), options);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, byteArrayOutputStream);
+
+        try {
+            byteArrayOutputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        bitmap = BitmapFactory.decodeStream(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
+
+        return bitmap;
+    }
+
+    private Bitmap adjustBitmapToCorrectOrientation(String photoPath, Bitmap bitmap) {
+        ExifInterface ei = null;
+
+        try {
+            ei = new ExifInterface(photoPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+
+        switch(orientation) {
+
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                return rotateImage(bitmap, 90);
+
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                return rotateImage(bitmap, 180);
+
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                return rotateImage(bitmap, 270);
+
+            case ExifInterface.ORIENTATION_NORMAL:
+
+            default:
+                break;
+        }
+
+        return bitmap;
+    }
+
+    /// Rotate and return bitmap by given degree
+    private Bitmap rotateImage(Bitmap bitmap, int degree) {
+        if (degree > 360) {
+            return null;
+        }
+
+        // Rotate bitmap by 'degree'
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degree);
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
     private void startImageCount() {
@@ -342,5 +410,68 @@ public class CrimeFragment extends Fragment {
             }
             ((ViewGroup) view).removeAllViews();
         }
+    }
+
+    // Detects all faces on the screen
+    private void detectFaces() {
+        if (detectFacesCheckBox.isChecked()) {
+            int sumOfPhotos = 0;
+            for(int i = 0; i < mPhotoViews.length; i++) {
+                if (mPhotoViews[i].getDrawable() != null) {
+                    // If image isn't null, get the value of the image:
+                    sumOfPhotos += detectFacesFromImageView(mPhotoViews[i]);
+                }
+            }
+            faceDetectedText.setText(sumOfPhotos + " Faces Detected.");
+        }
+    }
+
+    // Detects and returns the number of faces in the given image view
+    private int detectFacesFromImageView(ImageView imageView) {
+        // Paint for the squares around faces
+        Paint myRectPaint = new Paint();
+        myRectPaint.setStrokeWidth(20);
+        myRectPaint.setColor(Color.RED);
+        myRectPaint.setStyle(Paint.Style.STROKE);
+
+        Bitmap bitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
+
+        // Create a Canvas object for drawing on:
+        Bitmap tempBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
+        Canvas tempCanvas = new Canvas(tempBitmap);
+        tempCanvas.drawBitmap(bitmap, 0, 0, null);
+
+        // Create the Face Detector
+        FaceDetector faceDetector = new FaceDetector.Builder(getActivity().getApplicationContext()).setTrackingEnabled(false).build();
+
+        if(!faceDetector.isOperational()){
+            Toast toast = Toast.makeText(getActivity().getApplicationContext(), "Could not set up the face detector!", Toast.LENGTH_SHORT);
+            toast.show();
+            return 0;
+        }
+
+        // Detect the Faces
+        Frame frame = new Frame.Builder().setBitmap(bitmap).build();
+        SparseArray<Face> faces = faceDetector.detect(frame);
+
+        // Draw Rectangles on the Faces
+        for(int i=0; i<faces.size(); i++) {
+            Face thisFace = faces.valueAt(i);
+            float x1 = thisFace.getPosition().x;
+            float y1 = thisFace.getPosition().y;
+            float x2 = x1 + thisFace.getWidth();
+            float y2 = y1 + thisFace.getHeight();
+            tempCanvas.drawRoundRect(new RectF(x1, y1, x2, y2), 2, 2, myRectPaint);
+        }
+
+        imageView.setImageDrawable(new BitmapDrawable(getResources(),tempBitmap));
+
+        return faces.size();
+
+    }
+
+    @Override
+    public void onClick(View view) {
+        detectFaces();
     }
 }
