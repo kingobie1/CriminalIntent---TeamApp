@@ -20,7 +20,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/crime_details_label"
-                style="?android:listSeparatorTextViewStyle"/>
+                style="?android:listSeparatorTextViewStyle"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp" />
 
             <LinearLayout
                 android:orientation="horizontal"
@@ -72,7 +74,9 @@
                 android:layout_height="wrap_content"
                 android:text="@string/crime_previous_images_label"
                 style="?android:listSeparatorTextViewStyle"
-                android:id="@+id/textView2" />
+                android:id="@+id/textView2"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp" />
 
             <RelativeLayout
                 android:layout_width="match_parent"
