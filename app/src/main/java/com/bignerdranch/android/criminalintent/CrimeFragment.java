@@ -18,6 +18,7 @@ import android.support.v4.app.FragmentManager;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,7 +30,10 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.Date;
 import java.util.UUID;
 
@@ -191,7 +195,6 @@ public class CrimeFragment extends Fragment {
                 uri = Uri.fromFile(mPhotoFiles[imageCount]);
                 captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
                 startActivityForResult(captureImage, REQUEST_PHOTO);
-                imageCount += 1;
             }
         });
 
@@ -247,6 +250,7 @@ public class CrimeFragment extends Fragment {
                 c.close();
             }
         } else if (requestCode == REQUEST_PHOTO) {
+            imageCount += 1;
             updatePhotoView();
         }
     }
@@ -279,9 +283,27 @@ public class CrimeFragment extends Fragment {
             if (mPhotoFiles[i] == null || !mPhotoFiles[i].exists()) {
                 mPhotoViews[i].setImageDrawable(null);
             } else {
-                Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFiles[i].getPath(), getActivity());
-//                Bitmap bitmap = BitmapFactory.decodeFile(mPhotoFiles[i].getPath());
-//                ((BitmapDrawable)mPhotoViews[i].getDrawable()).getBitmap().recycle();
+                // Update Photo View With images of a lower quality to save ram
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                BitmapFactory.Options options = new BitmapFactory.Options();
+
+                options.inDensity = DisplayMetrics.DENSITY_DEFAULT;
+                options.inTargetDensity = DisplayMetrics.DENSITY_DEFAULT;
+                options.inScreenDensity = DisplayMetrics.DENSITY_DEFAULT;
+                options.inSampleSize = 2;
+                options.inScaled = false;
+                options.inPreferredConfig = Bitmap.Config.RGB_565;
+                Bitmap bitmap = new BitmapFactory().decodeFile(mPhotoFiles[i].getPath(), options);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 60, byteArrayOutputStream);
+
+                try {
+                    byteArrayOutputStream.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                bitmap = BitmapFactory.decodeStream(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
+
                 mPhotoViews[i].setImageBitmap(bitmap);
             }
         }
