@@ -423,6 +423,8 @@ public class CrimeFragment extends Fragment implements View.OnClickListener {
                 }
             }
             faceDetectedText.setText(sumOfPhotos + " Faces Detected.");
+        } else {
+            faceDetectedText.setText("");
         }
     }
 
