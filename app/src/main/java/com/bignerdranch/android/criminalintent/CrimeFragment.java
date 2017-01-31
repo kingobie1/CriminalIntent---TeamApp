@@ -300,6 +300,8 @@ public class CrimeFragment extends Fragment implements View.OnClickListener {
                 bitmap = adjustBitmapToCorrectOrientation(mPhotoFiles[i].getPath(), bitmap);
 
                 mPhotoViews[i].setImageBitmap(bitmap);
+
+                detectFaces();
             }
         }
     }
@@ -410,15 +412,29 @@ public class CrimeFragment extends Fragment implements View.OnClickListener {
         }
     }
 
+    // Detects all faces on the screen
+    private void detectFaces() {
+        if (detectFacesCheckBox.isChecked()) {
+            int sumOfPhotos = 0;
+            for(int i = 0; i < mPhotoViews.length; i++) {
+                if (mPhotoViews[i].getDrawable() != null) {
+                    // If image isn't null, get the value of the image:
+                    sumOfPhotos += detectFacesFromImageView(mPhotoViews[i]);
+                }
+            }
+            faceDetectedText.setText(sumOfPhotos + " Faces Detected.");
+        }
+    }
 
-    private int detectFaces(int viewNumber) {
+    // Detects and returns the number of faces in the given image view
+    private int detectFacesFromImageView(ImageView imageView) {
         // Paint for the squares around faces
         Paint myRectPaint = new Paint();
         myRectPaint.setStrokeWidth(20);
         myRectPaint.setColor(Color.RED);
         myRectPaint.setStyle(Paint.Style.STROKE);
 
-        Bitmap bitmap = ((BitmapDrawable)mPhotoViews[viewNumber].getDrawable()).getBitmap();
+        Bitmap bitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
 
         // Create a Canvas object for drawing on:
         Bitmap tempBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
@@ -447,7 +463,8 @@ public class CrimeFragment extends Fragment implements View.OnClickListener {
             float y2 = y1 + thisFace.getHeight();
             tempCanvas.drawRoundRect(new RectF(x1, y1, x2, y2), 2, 2, myRectPaint);
         }
-        mPhotoViews[viewNumber].setImageDrawable(new BitmapDrawable(getResources(),tempBitmap));
+
+        imageView.setImageDrawable(new BitmapDrawable(getResources(),tempBitmap));
 
         return faces.size();
 
@@ -455,12 +472,6 @@ public class CrimeFragment extends Fragment implements View.OnClickListener {
 
     @Override
     public void onClick(View view) {
-        if (detectFacesCheckBox.isChecked()) {
-            int sumOfPhotos = 0;
-            for(int i = 0; i < mPhotoViews.length; i++) {
-                sumOfPhotos += detectFaces(i);
-            }
-            faceDetectedText.setText(sumOfPhotos + " Faces Detected.");
-        }
+        detectFaces();
     }
 }
