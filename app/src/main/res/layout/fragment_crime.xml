@@ -111,6 +111,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
+                <CheckBox
+                    android:text="Detect Faces"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/detectFacesCheckBox"
+                    android:layout_weight="0.08"
+                    android:onClick="detectFaces" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/facesDetected_Text"
+                    android:layout_weight="1" />
+
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
