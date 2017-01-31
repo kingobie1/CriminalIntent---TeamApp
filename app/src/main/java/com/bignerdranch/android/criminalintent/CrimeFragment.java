@@ -13,6 +13,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -293,36 +294,85 @@ public class CrimeFragment extends Fragment implements View.OnClickListener {
             if (mPhotoFiles[i] == null || !mPhotoFiles[i].exists()) {
                 mPhotoViews[i].setImageDrawable(null);
             } else {
-                // Update Photo View With images of a lower quality to save ram
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                BitmapFactory.Options options = new BitmapFactory.Options();
 
-                options.inDensity = DisplayMetrics.DENSITY_DEFAULT;
-                options.inTargetDensity = DisplayMetrics.DENSITY_DEFAULT;
-                options.inScreenDensity = DisplayMetrics.DENSITY_DEFAULT;
-                options.inSampleSize = 2;
-                options.inScaled = false;
-                options.inMutable=true;
-                options.inPreferredConfig = Bitmap.Config.RGB_565;
-                Bitmap bitmap = new BitmapFactory().decodeFile(mPhotoFiles[i].getPath(), options);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 60, byteArrayOutputStream);
+                Bitmap bitmap = getLowQualityBitmapFromFile(mPhotoFiles[i]);
 
-                try {
-                    byteArrayOutputStream.flush();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                bitmap = BitmapFactory.decodeStream(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
-
-                // Rotate bitmap 90°
-                Matrix matrix = new Matrix();
-                matrix.postRotate(270);
-                bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+                bitmap = adjustBitmapToCorrectOrientation(mPhotoFiles[i].getPath(), bitmap);
 
                 mPhotoViews[i].setImageBitmap(bitmap);
             }
         }
+    }
+
+    private Bitmap getLowQualityBitmapFromFile(File file) {
+        // Update Photo View With images of a lower quality to save ram
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        BitmapFactory.Options options = new BitmapFactory.Options();
+
+        // Set extra perameters about requested bitmap
+        options.inDensity = DisplayMetrics.DENSITY_DEFAULT;
+        options.inTargetDensity = DisplayMetrics.DENSITY_DEFAULT;
+        options.inScreenDensity = DisplayMetrics.DENSITY_DEFAULT;
+        options.inSampleSize = 2;
+        options.inScaled = false;
+        options.inMutable=true;
+        options.inPreferredConfig = Bitmap.Config.RGB_565;
+
+        Bitmap bitmap = new BitmapFactory().decodeFile(file.getPath(), options);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, byteArrayOutputStream);
+
+        try {
+            byteArrayOutputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        bitmap = BitmapFactory.decodeStream(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()));
+
+        return bitmap;
+    }
+
+    private Bitmap adjustBitmapToCorrectOrientation(String photoPath, Bitmap bitmap) {
+        ExifInterface ei = null;
+
+        try {
+            ei = new ExifInterface(photoPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+
+        switch(orientation) {
+
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                return rotateImage(bitmap, 90);
+
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                return rotateImage(bitmap, 180);
+
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                return rotateImage(bitmap, 270);
+
+            case ExifInterface.ORIENTATION_NORMAL:
+
+            default:
+                break;
+        }
+
+        return bitmap;
+    }
+
+    /// Rotate and return bitmap by given degree
+    private Bitmap rotateImage(Bitmap bitmap, int degree) {
+        if (degree > 360) {
+            return null;
+        }
+
+        // Rotate bitmap by 'degree'
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degree);
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
     private void startImageCount() {
